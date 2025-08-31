@@ -160,22 +160,56 @@ app.post('/mcp', async (req, res) => {
     }
   });
 
-  // Define a tool to get the list of all coins
-  // server.tool('getCoinList', /* args schema */ {}, async () => {
-  //   try {
-  //     const response = await axios.get(
-  //       `${API_HOST}/coins/list`, {
-  //       headers: CG_HEADER
-  //     }
-  //     );
-  //     const v = JSON.stringify(response.data);
-  //     return { content: [{ type: "text", text: v }] };
-  //   } catch (error) {
-  //     console.error("Error fetching coin list:", error);
-  //     const v = JSON.stringify({ error: "Failed to fetch coin list" });
-  //     return { content: [{ type: "text", text: v }] };
-  //   }
-  // });
+  // Define a tool to get public companies holdings
+  server.tool('getPublicCompaniesHoldings', 'Get public companies Bitcoin or Ethereum holdings', {
+    coin_id: z.enum(['bitcoin', 'ethereum']).describe("Coin ID - must be either 'bitcoin' or 'ethereum'")
+  }, async ({ coin_id }) => {
+    const args = { coin_id };
+    logRequest('TOOL_CALL', { tool: 'getPublicCompaniesHoldings', args });
+    
+    try {
+      logRequest('EXTERNAL_API_CALL', {
+        url: `${API_HOST}/companies/public_treasury/${coin_id}`,
+        method: 'GET',
+        headers: CG_HEADER,
+        coin_id,
+        timestamp: new Date().toISOString()
+      });
+
+      const response = await axios.get(
+        `${API_HOST}/companies/public_treasury/${coin_id}`, {
+        headers: CG_HEADER
+      }
+      );
+
+      logRequest('EXTERNAL_API_RESPONSE', {
+        url: `${API_HOST}/companies/public_treasury/${coin_id}`,
+        status: response.status,
+        statusText: response.statusText,
+        dataLength: JSON.stringify(response.data).length,
+        timestamp: new Date().toISOString()
+      });
+
+      const v = JSON.stringify(response.data);
+      const result = { content: [{ type: "text" as const, text: v }] };
+      logRequest('TOOL_RESPONSE', { tool: 'getPublicCompaniesHoldings', result });
+      return result;
+    } catch (error) {
+      logRequest('EXTERNAL_API_ERROR', {
+        url: `${API_HOST}/companies/public_treasury/${coin_id}`,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      });
+      
+      console.error("Error fetching public companies holdings:", error);
+      const v = JSON.stringify({ error: "Failed to fetch public companies holdings" });
+      const result = { content: [{ type: "text" as const, text: v }] };
+      logRequest('TOOL_ERROR_RESPONSE', { tool: 'getPublicCompaniesHoldings', result });
+      return result;
+    }
+  });
+
+
 
   // Create a streamable HTTP transport for this request (no session state)
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
