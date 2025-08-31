@@ -1,13 +1,5 @@
 startCommand:
   type: http
   configSchema:
-    type: object
-    required: ["apiKey"]
-    properties:
-      apiKey:
-        type: string
-        title: "CoinGecko API Key"
-        description: "Your CoinGecko API key for accessing coin price data"
-  env:
-    COINGECKO_API_KEY: "{{apiKey}}"
+
   port: 3000
