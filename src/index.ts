@@ -47,15 +47,6 @@ app.post('/mcp', async (req, res) => {
   // Create a fresh MCP server instance for each request (stateless mode)
   const server = new McpServer({ name: 'FreeCoinPrice', version: '1.0.0' });
 
-  // Define a simple "hello" tool with no arguments
-  server.tool('hello', 'A simple hello tool', {}, async () => {
-    logRequest('TOOL_CALL', { tool: 'hello', args: {} });
-    // Return the content as text. MCP expects an array of content blocks.
-    const result = { content: [{ type: 'text' as const, text: 'hello' }] };
-    logRequest('TOOL_RESPONSE', { tool: 'hello', result });
-    return result;
-  });
-
   server.tool('getSupportedCurrencies', 'Get supported currencies from CoinGecko', {}, async () => {
     logRequest('TOOL_CALL', { tool: 'getSupportedCurrencies', args: {} });
     
@@ -205,6 +196,50 @@ app.post('/mcp', async (req, res) => {
       const v = JSON.stringify({ error: "Failed to fetch public companies holdings" });
       const result = { content: [{ type: "text" as const, text: v }] };
       logRequest('TOOL_ERROR_RESPONSE', { tool: 'getPublicCompaniesHoldings', result });
+      return result;
+    }
+  });
+
+  // Define a tool to check API server status
+  server.tool('checkApiStatus', 'Check API server status', {}, async () => {
+    logRequest('TOOL_CALL', { tool: 'checkApiStatus', args: {} });
+    
+    try {
+      logRequest('EXTERNAL_API_CALL', {
+        url: `${API_HOST}/ping`,
+        method: 'GET',
+        headers: CG_HEADER,
+        timestamp: new Date().toISOString()
+      });
+
+      const response = await axios.get(
+        `${API_HOST}/ping`, {
+        headers: CG_HEADER
+      }
+      );
+
+      logRequest('EXTERNAL_API_RESPONSE', {
+        url: `${API_HOST}/ping`,
+        status: response.status,
+        statusText: response.statusText,
+        dataLength: JSON.stringify(response.data).length,
+        timestamp: new Date().toISOString()
+      });
+
+      const result = { content: [{ type: "text" as const, text: "API is running" }] };
+      logRequest('TOOL_RESPONSE', { tool: 'checkApiStatus', result });
+      return result;
+    } catch (error) {
+      logRequest('EXTERNAL_API_ERROR', {
+        url: `${API_HOST}/ping`,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      });
+      
+      console.error("Error checking API status:", error);
+      const v = JSON.stringify({ error: "Failed to check API status" });
+      const result = { content: [{ type: "text" as const, text: v }] };
+      logRequest('TOOL_ERROR_RESPONSE', { tool: 'checkApiStatus', result });
       return result;
     }
   });
