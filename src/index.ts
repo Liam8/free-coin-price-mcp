@@ -92,7 +92,7 @@ app.post('/mcp', async (req, res) => {
   });
 
   // Define a tool to get coin prices
-  server.tool('getCoinPrice', 'Get coin prices from CoinGecko', {
+  server.tool('getCoinPrice', 'Get coin prices', {
     ids: z.string().optional().describe("Comma-separated list of coin IDs"),
     names: z.string().optional().describe("Comma-separated list of coin names"),
     symbols: z.string().optional().describe("Comma-separated list of coin symbols"),
@@ -259,6 +259,73 @@ app.post('/mcp', async (req, res) => {
       const v = JSON.stringify({ error: "Failed to fetch historical chart data" });
       const result = { content: [{ type: "text" as const, text: v }] };
       logRequest('TOOL_ERROR_RESPONSE', { tool: 'getCoinHistoricalChart', result });
+      return result;
+    }
+  });
+
+  // Define a tool to get coin OHLC chart data
+  server.tool('getCoinOHLCChart', 
+    `Get coin OHLC chart (Open, High, Low, Close) data.
+    Data granularity (candle's body) is automatic:
+    1 - 2 days: 30 minutes
+    3 - 30 days: 4 hours
+    31 days and beyond: 4 days`, {
+    id: z.string().describe("Coin ID (e.g., 'bitcoin', 'ethereum')"),
+    vs_currency: z.string().default("usd").describe("Target currency of price data (e.g., 'usd', 'eur')"),
+    days: z.enum(['1', '7', '14', '30', '90', '180', '365']).describe("Data up to number of days ago, only '1', '7', '14', '30', '90', '180', '365' are allowed"),
+    precision: z.string().optional().describe("Decimal place for currency price value")
+  }, async ({ id, vs_currency, days, precision }) => {
+    const args = { id, vs_currency, days, precision };
+    logRequest('TOOL_CALL', { tool: 'getCoinOHLCChart', args });
+    
+    try {
+      const params: any = {
+        vs_currency,
+        days
+      };
+
+      if (precision) {
+        params.precision = precision;
+      }
+
+      logRequest('EXTERNAL_API_CALL', {
+        url: `${API_HOST}/coins/${id}/ohlc`,
+        method: 'GET',
+        headers: CG_HEADER,
+        params,
+        timestamp: new Date().toISOString()
+      });
+
+      const response = await axios.get(
+        `${API_HOST}/coins/${id}/ohlc`, {
+        headers: CG_HEADER,
+        params
+      }
+      );
+
+      logRequest('EXTERNAL_API_RESPONSE', {
+        url: `${API_HOST}/coins/${id}/ohlc`,
+        status: response.status,
+        statusText: response.statusText,
+        dataLength: JSON.stringify(response.data).length,
+        timestamp: new Date().toISOString()
+      });
+
+      const v = JSON.stringify(response.data);
+      const result = { content: [{ type: "text" as const, text: v }] };
+      logRequest('TOOL_RESPONSE', { tool: 'getCoinOHLCChart', result });
+      return result;
+    } catch (error) {
+      logRequest('EXTERNAL_API_ERROR', {
+        url: `${API_HOST}/coins/${id}/ohlc`,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      });
+      
+      console.error("Error fetching OHLC chart data:", error);
+      const v = JSON.stringify({ error: "Failed to fetch OHLC chart data" });
+      const result = { content: [{ type: "text" as const, text: v }] };
+      logRequest('TOOL_ERROR_RESPONSE', { tool: 'getCoinOHLCChart', result });
       return result;
     }
   });
