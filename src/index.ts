@@ -200,6 +200,69 @@ app.post('/mcp', async (req, res) => {
     }
   });
 
+  // Define a tool to get historical chart data for a coin
+  server.tool('getCoinHistoricalChart', 'Get historical chart data for a coin including price, market cap and volume', {
+    id: z.string().describe("Coin ID (e.g., 'bitcoin', 'ethereum')"),
+    vs_currency: z.string().default("usd").describe("Target currency of market data (e.g., 'usd', 'eur')"),
+    days: z.string().describe("Data up to number of days ago (e.g., '1', '7', '30', '365')"),
+    precision: z.string().optional().describe("Decimal place for currency price value")
+  }, async ({ id, vs_currency, days, precision }) => {
+    const args = { id, vs_currency, days, precision };
+    logRequest('TOOL_CALL', { tool: 'getCoinHistoricalChart', args });
+    
+    try {
+      const params: any = {
+        vs_currency,
+        days,
+        interval: 'daily'
+      };
+
+      if (precision) {
+        params.precision = precision;
+      }
+
+      logRequest('EXTERNAL_API_CALL', {
+        url: `${API_HOST}/coins/${id}/market_chart`,
+        method: 'GET',
+        headers: CG_HEADER,
+        params,
+        timestamp: new Date().toISOString()
+      });
+
+      const response = await axios.get(
+        `${API_HOST}/coins/${id}/market_chart`, {
+        headers: CG_HEADER,
+        params
+      }
+      );
+
+      logRequest('EXTERNAL_API_RESPONSE', {
+        url: `${API_HOST}/coins/${id}/market_chart`,
+        status: response.status,
+        statusText: response.statusText,
+        dataLength: JSON.stringify(response.data).length,
+        timestamp: new Date().toISOString()
+      });
+
+      const v = JSON.stringify(response.data);
+      const result = { content: [{ type: "text" as const, text: v }] };
+      logRequest('TOOL_RESPONSE', { tool: 'getCoinHistoricalChart', result });
+      return result;
+    } catch (error) {
+      logRequest('EXTERNAL_API_ERROR', {
+        url: `${API_HOST}/coins/${id}/market_chart`,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      });
+      
+      console.error("Error fetching historical chart data:", error);
+      const v = JSON.stringify({ error: "Failed to fetch historical chart data" });
+      const result = { content: [{ type: "text" as const, text: v }] };
+      logRequest('TOOL_ERROR_RESPONSE', { tool: 'getCoinHistoricalChart', result });
+      return result;
+    }
+  });
+
   // Define a tool to check API server status
   server.tool('checkApiStatus', 'Check API server status', {}, async () => {
     logRequest('TOOL_CALL', { tool: 'checkApiStatus', args: {} });
