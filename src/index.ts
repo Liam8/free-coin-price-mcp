@@ -7,6 +7,11 @@ import axios from "axios";
 const app = express();
 app.use(express.json());
 
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Free Coin Price MCP Server is running' });
+});
+
 const API_HOST = "https://api.coingecko.com/api/v3"
 const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
 const CG_HEADER = {
@@ -101,7 +106,7 @@ app.post('/mcp', async (req, res) => {
 });
 
 // Start listening
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`MCP server listening on port ${PORT}`);
 });

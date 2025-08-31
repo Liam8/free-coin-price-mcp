@@ -6,5 +6,8 @@ startCommand:
     properties:
       apiKey:
         type: string
-        title: "API Key"
-        description: "Your API key"
+        title: "CoinGecko API Key"
+        description: "Your CoinGecko API key for accessing coin price data"
+  env:
+    COINGECKO_API_KEY: "{{apiKey}}"
+  port: 3000
